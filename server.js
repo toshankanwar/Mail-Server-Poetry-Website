@@ -16,11 +16,13 @@ if (!admin.apps.length) {
 }
 const firestore = admin.firestore();
 
-const EMAIL_USER = process.env.EMAIL_USER || "toshankanwar4@gmail.com";
-const EMAIL_PASS = process.env.EMAIL_PASS || "byrq zbnu bckb qbsb";
+const EMAIL_USER = process.env.EMAIL_USER || "contact@toshankanwar.website";
+const EMAIL_PASS = process.env.EMAIL_PASS || "ucZvGm30J217";
 
 const transporter = nodemailer.createTransport({
-  service: 'Gmail',
+  host: 'smtp.zoho.in', // or 'smtp.zoho.com'
+  port: 465, // 465 for SSL, 587 for TLS
+  secure: true, // true for 465, false for 587
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
