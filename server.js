@@ -16,16 +16,13 @@ if (!admin.apps.length) {
 }
 const firestore = admin.firestore();
 
-const EMAIL_USER = process.env.EMAIL_USER || "contact@toshankanwar.website";
-const EMAIL_PASS = process.env.EMAIL_PASS || "ucZvGm30J217";
-
 const transporter = nodemailer.createTransport({
   host: 'smtp.zoho.in', // or 'smtp.zoho.com'
   port: 465, // 465 for SSL, 587 for TLS
   secure: true, // true for 465, false for 587
   auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
+    user: "contact@toshankanwar.website",
+    pass: "ucZvGm30J217",
   },
 });
 
@@ -37,7 +34,7 @@ app.post('/api/send-aproval-email', async (req, res) => {
   }
   try {
     await transporter.sendMail({
-      from: EMAIL_USER,
+      from: '"PoemSite Toshan" <contact@toshankanwar.website>',
       to,
       subject,
       html, // send as HTML only
@@ -94,14 +91,13 @@ app.post('/api/send-welcome-email', async (req, res) => {
   try {
     // Send welcome email
     await transporter.sendMail({
-      from: EMAIL_USER,
+      from: '"PoemSite Toshan" <contact@toshankanwar.website>',
       to: email,
       subject,
       html,
     });
 
-    // Add to mailing list in Firestore (if not already added)
-    // Try to find any doc with this email
+    
     const snap = await firestore.collection('mailingList').where('email', '==', email).limit(1).get();
     if (snap.empty) {
       // If not present, add a new doc
@@ -166,7 +162,7 @@ app.post('/api/send-poem-announcement', async (req, res) => {
   try {
     await Promise.all(emails.map(email =>
       transporter.sendMail({
-        from: EMAIL_USER,
+        from: '"PoemSite Toshan" <contact@toshankanwar.website>',
         to: email,
         subject,
         html: html.replace('EMAIL_PLACEHOLDER', encodeURIComponent(email))
