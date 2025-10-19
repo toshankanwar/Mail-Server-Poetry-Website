@@ -2,25 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const admin = require('firebase-admin');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(require('./poem-dcbe8-firebase-adminsdk-fbsvc-fe707ed34e.json')),
-  });
-}
-const firestore = admin.firestore();
-
 // Brevo API configuration
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const FROM_EMAIL = process.env.EMAIL_FROM ;
-const FROM_NAME = process.env.EMAIL_FROM_NAME ;
+const FROM_EMAIL = process.env.EMAIL_FROM || 'contact@toshankanwar.website';
+const FROM_NAME = process.env.EMAIL_FROM_NAME || 'PoemSite Toshan';
 
 // Helper function to send email via Brevo
 async function sendBrevoEmail(to, subject, htmlContent) {
@@ -70,7 +61,7 @@ app.post('/api/send-aproval-email', async (req, res) => {
   }
 });
 
-// Send welcome email to new user
+// Send welcome email (NO FIRESTORE)
 app.post('/api/send-welcome-email', async (req, res) => {
   const { email, name } = req.body;
   
@@ -113,23 +104,7 @@ app.post('/api/send-welcome-email', async (req, res) => {
 `;
 
   try {
-    // Send welcome email
     await sendBrevoEmail(email, subject, html);
-
-    // Add to mailing list
-    const snap = await firestore.collection('mailingList').where('email', '==', email).limit(1).get();
-    if (snap.empty) {
-      await firestore.collection('mailingList').add({
-        email,
-        name: name || "",
-        subscribed: true,
-        created: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else {
-      const docRef = snap.docs[0].ref;
-      await docRef.update({ subscribed: true });
-    }
-
     res.status(200).json({ success: true });
   } catch (err) {
     console.error('Error sending welcome email:', err);
@@ -137,20 +112,20 @@ app.post('/api/send-welcome-email', async (req, res) => {
   }
 });
 
-// Send poem announcement to mailing list
+// Send poem announcement (expects email list from frontend)
 app.post('/api/send-poem-announcement', async (req, res) => {
   console.log('Received poem announcement:', req.body);
   const { emails, poem } = req.body;
   
   if (!emails?.length || !poem) {
-    return res.status(400).json({ error: 'Missing data' });
+    return res.status(400).json({ error: 'Missing emails array or poem data' });
   }
 
   const subject = `New Poem Published: "${poem.title}"`;
   const link = `https://poems.toshankanwar.website/poem/${poem.slug}`;
 
   try {
-    // Send to each email (with personalized unsubscribe link)
+    // Send to each email with personalized content
     const promises = emails.map(email => {
       const html = `
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px #ccb7f4;padding:32px 24px 20px 24px;font-family:'Segoe UI',Arial,sans-serif;">
@@ -175,7 +150,7 @@ app.post('/api/send-poem-announcement', async (req, res) => {
     <footer style="text-align:center;color:#6c4a84;font-size:0.97em;">
       <p style="margin-bottom:8px;">Thank you for being a valued member of the PoemSite community.<br/>We hope this poem inspires you today!</p>
       <p style="margin-bottom:3px;">
-        <small>If you wish to unsubscribe from future poem notifications, <a href="https://poems.toshankanwar.website/unsubscribe?email=${encodeURIComponent(email)}" style="color:#7c3aed;text-decoration:underline;">click here</a>.</small>
+        <small>If you wish to unsubscribe, please contact us at <a href="mailto:contact@toshankanwar.website" style="color:#7c3aed;text-decoration:underline;">contact@toshankanwar.website</a></small>
       </p>
       <p style="margin-top:18px;font-size:0.93em;color:#b197d9;">
         &mdash; Team PoemSite 
@@ -195,48 +170,11 @@ app.post('/api/send-poem-announcement', async (req, res) => {
   }
 });
 
-// Unsubscribe API
-app.post('/api/unsubscribe', async (req, res) => {
-  const { email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ error: 'Missing email' });
-  }
-  
-  try {
-    const snap = await firestore
-      .collection('mailingList')
-      .where('email', '==', email)
-      .get();
-
-    if (snap.empty) {
-      return res.status(404).json({ error: 'Email not found in mailing list' });
-    }
-
-    const updates = [];
-    snap.forEach(docRef => {
-      updates.push(
-        docRef.ref.update({ 
-          subscribed: false, 
-          unsubscribedAt: admin.firestore.FieldValue.serverTimestamp() 
-        })
-      );
-    });
-    await Promise.all(updates);
-
-    console.log(`✅ Unsubscribed: ${email}`);
-    res.json({ unsubscribed: true });
-  } catch (err) {
-    console.error('Unsubscribe error:', err);
-    res.status(500).json({ error: 'Failed to unsubscribe' });
-  }
-});
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'PoemSite Email Server',
+    service: 'PoemSite Email Server (Simple)',
     brevoConfigured: !!BREVO_API_KEY,
     timestamp: new Date().toISOString()
   });
@@ -266,7 +204,7 @@ function startSelfPing() {
     return;
   }
 
-  const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+  const PING_INTERVAL = 14 * 60 * 1000;
 
   console.log('🔔 Starting self-ping service...');
   console.log(`📍 Target URL: ${SERVER_URL}/ping`);
@@ -299,7 +237,7 @@ const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`📧 PoemSite Email Server`);
+  console.log(`📧 PoemSite Email Server (No Firestore)`);
   console.log(`📍 Port: ${PORT}`);
   console.log(`📧 Email From: ${FROM_EMAIL}`);
   console.log(`🔑 Brevo API: ${BREVO_API_KEY ? '✅ Configured' : '❌ Not configured'}`);
