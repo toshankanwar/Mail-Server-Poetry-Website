@@ -10,8 +10,8 @@ app.use(cors());
 // Brevo API configuration
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const FROM_EMAIL = process.env.EMAIL_FROM || 'contact@toshankanwar.website';
-const FROM_NAME = process.env.EMAIL_FROM_NAME || 'PoemSite Toshan';
+const FROM_EMAIL = process.env.EMAIL_FROM ;
+const FROM_NAME = process.env.EMAIL_FROM_NAME ;
 
 // Helper function to send email via Brevo
 async function sendBrevoEmail(to, subject, htmlContent) {
